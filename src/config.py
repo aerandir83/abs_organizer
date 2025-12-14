@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Config:
     INPUT_DIR = os.getenv("INPUT_DIR", "/data/input")

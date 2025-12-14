@@ -5,3 +5,4 @@ thefuzz
 jinja2
 python-levenshtein
 pytest
+python-dotenv
