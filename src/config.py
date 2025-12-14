@@ -1,0 +1,21 @@
+import os
+
+class Config:
+    INPUT_DIR = os.getenv("INPUT_DIR", "/data/input")
+    OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/data/output")
+    ABS_URL = os.getenv("ABS_URL", "http://localhost:8080")
+    ABS_API_KEY = os.getenv("ABS_API_KEY", "")
+    STABILITY_CHECK_DURATION = int(os.getenv("STABILITY_CHECK_DURATION", "60"))
+    ALLOWED_EXTENSIONS = {'.m4b', '.mp3', '.m4a', '.flac', '.opus', '.wma', '.epub', '.pdf', '.jpg', '.png'}
+    # Thresholds for fuzzy matching
+    MATCH_THRESHOLD_AUTOMATIC = 90
+    MATCH_THRESHOLD_PROBABLE = 70
+    
+    # Permissions
+    PUID = int(os.getenv("PUID", "1000"))
+    PGID = int(os.getenv("PGID", "1000"))
+
+    # Metadata providers
+    METADATA_PROVIDERS = os.getenv("METADATA_PROVIDERS", "openlibrary,googlebooks").split(",")
+
+config = Config()

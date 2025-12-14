@@ -1,0 +1,7 @@
+watchdog
+mutagen
+requests
+thefuzz
+jinja2
+python-levenshtein
+pytest
