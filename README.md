@@ -14,7 +14,7 @@
   - Parses filenames and directory names.
   - Merges data to get the best starting point.
 - **Metadata Enrichment**:
-  - Fetches details from **OpenLibrary** and **Google Books**.
+  - Fetches details from **OpenLibrary**, **Google Books**, and **Audible**.
   - Retrieves Title, Author, Description, Year, ISBN, and Cover Art.
 - **Organization**:
   - Moves files to a structured library: `Author/Series/Title` or `Author/Title`.
@@ -67,14 +67,22 @@ services:
     git clone https://github.com/your-username/AutoLibrarian.git
     cd AutoLibrarian
     ```
-3.  **Install Dependencies**:
+3.  **Set up Virtual Environment**:
+    ```bash
+    python -m venv .venv
+    # Windows
+    .venv\Scripts\activate
+    # macOS/Linux
+    source .venv/bin/activate
+    ```
+4.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Configure**:
+5.  **Configure**:
     - Create a `.env` file by copying the example: `cp config.env.example .env`
     - Edit the `.env` file to match your setup (e.g., `INPUT_DIR`, `OUTPUT_DIR`).
-5.  **Run the Application**:
+6.  **Run the Application**:
     ```bash
     python src/main.py
     ```

@@ -2,12 +2,15 @@ import time
 import logging
 import sys
 import os
+import threading
+import uvicorn
 from src.config import config
 from src.monitor import Monitor
 from src.ingest import IngestionManager
 from src.identifier import Identifier
 from src.providers import MetadataAggregator
 from src.organizer import Organizer
+from src.queue_manager import queue_manager
 
 # Configure logging
 logging.basicConfig(
@@ -31,10 +34,18 @@ class AutoLibrarian:
         # Monitor callback -> Ingestion Manager
         self.monitor = Monitor(config.INPUT_DIR, self.ingestion.process_file)
 
+    def start_api(self):
+        uvicorn.run("src.web.api:app", host="0.0.0.0", port=config.API_PORT, log_level="info", reload=False)
+
     def start(self):
         logger.info("Starting AutoLibrarian...")
         logger.info(f"Input Directory: {config.INPUT_DIR}")
         logger.info(f"Output Directory: {config.OUTPUT_DIR}")
+        
+        if config.WEB_UI_ENABLED:
+            logger.info(f"Starting Web API on port {config.API_PORT}")
+            api_thread = threading.Thread(target=self.start_api, daemon=True)
+            api_thread.start()
         
         self.monitor.start()
         
@@ -59,6 +70,12 @@ class AutoLibrarian:
             final_metadata = self.aggregator.enrich(initial_metadata)
             logger.info(f"Final Metadata: {final_metadata}")
             
+            # Web UI Interception
+            if config.WEB_UI_ENABLED:
+                logger.info("Adding to processing queue for Web UI review")
+                queue_manager.add_item(dirpath, files, final_metadata)
+                return
+
             # Confidence Check
             if final_metadata.confidence < config.MATCH_THRESHOLD_PROBABLE:
                 logger.warning(f"Confidence score {final_metadata.confidence} below threshold. Moving to Manual Intervention.")
@@ -76,22 +93,12 @@ class AutoLibrarian:
             # Move to manual intervention folder?
 
     def notify_abs(self):
-        url = f"{config.ABS_URL}/api/libraries/scan" # Note: ABS API might differ, usually /api/scan or /api/libraries/{id}/scan
-        # Requirement says: POST /api/libraries/{id}/scan
-        # We assume one library or scan all. 
-        # Alternatively: /api/scan/all
-        # If we don't have Lib ID, we might need to fetch it first.
-        # For MVP, logging the intent or trying a generic scan.
-        # ABS API documentation usually requires API Key.
-        
+        url = f"{config.ABS_URL}/api/libraries/scan" 
         headers = {"Authorization": f"Bearer {config.ABS_API_KEY}"} if config.ABS_API_KEY else {}
         
         try:
              # Try simple scan all if supported, or just log if no ID
-             # Real implementation would fetch library ID first
              logger.info("Triggering ABS Scan...")
-             # requests.post(url, headers=headers, timeout=5) 
-             # Commented out to avoid failure in environment without ABS
              pass 
         except Exception as e:
              logger.error(f"Failed to trigger ABS scan: {e}")

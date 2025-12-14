@@ -55,17 +55,27 @@ For users who prefer not to use Docker, AutoLibrarian can be run directly on a h
 1.  **Clone the Repository**:
 
     ```bash
-    git clone https://github.com/your-username/AutoLibrarian.git
-    cd AutoLibrarian
+    git clone https://github.com/aerandir83/maglibrarian.git
+    cd maglibrarian
     ```
 
-2.  **Install Dependencies**:
+2.  **Set up Virtual Environment**:
+
+    ```bash
+    python -m venv .venv
+    # Windows
+    .venv\Scripts\activate
+    # macOS/Linux
+    source .venv/bin/activate
+    ```
+
+3.  **Install Dependencies**:
 
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Configuration**:
+4.  **Configuration**:
 
     -   Create a `.env` file from the example:
         ```bash
@@ -73,7 +83,7 @@ For users who prefer not to use Docker, AutoLibrarian can be run directly on a h
         ```
     -   Edit the `.env` file to set your `INPUT_DIR`, `OUTPUT_DIR`, and other configuration variables. Ensure the user running the script has read/write permissions for these directories.
 
-4.  **Run the Application**:
+5.  **Run the Application**:
 
     ```bash
     python src/main.py

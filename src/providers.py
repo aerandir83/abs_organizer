@@ -100,6 +100,81 @@ class GoogleBooksProvider(MetadataProvider):
                             
         return res
 
+class AudibleProvider(MetadataProvider):
+    def search(self, query, author=None):
+        logger.info(f"Searching Audible for: {query}, author: {author}")
+        base_url = "https://api.audible.com/1.0/catalog/products"
+        
+        q = query
+        if author:
+            q += f" {author}"
+            
+        params = {
+            "title": q,
+            "num_results": 5,
+            "products_sort_by": "Relevance",
+            "response_groups": "media,product_attrs,product_desc,product_extended_attrs,series,contributors"
+        }
+            
+        try:
+            response = requests.get(base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            if 'products' in data:
+                for item in data['products']:
+                    results.append(self._parse_product(item))
+            return results
+        except Exception as e:
+            logger.error(f"Audible search failed: {e}")
+            return []
+
+    def _parse_product(self, item):
+        res = IdentificationResult()
+        res.source = "audible"
+        res.title = item.get('title')
+        res.asin = item.get('asin')
+        
+        # Authors
+        authors = item.get('authors', [])
+        if authors:
+            res.author = authors[0].get('name')
+            
+        # Narrators
+        narrators = item.get('narrators', [])
+        if narrators:
+            res.narrator = narrators[0].get('name')
+            
+        # Year
+        date_str = item.get('issue_date') or item.get('release_date')
+        if date_str:
+            res.year = date_str[:4]
+            
+        # Description
+        res.description = item.get('publisher_summary')
+        
+        # Cover
+        if 'product_images' in item:
+            try:
+                images = item['product_images']
+                if images:
+                    # Filter for numeric keys only to avoid errors
+                    numeric_keys = [k for k in images.keys() if k.isdigit()]
+                    if numeric_keys:
+                        max_key = max(numeric_keys, key=int)
+                        res.cover_url = images[max_key]
+                    else:
+                        # Fallback to any value
+                        res.cover_url = list(images.values())[0]
+            except Exception as e:
+                logger.debug(f"Error parsing audible images: {e}")
+                pass
+                
+        res.publisher = item.get('publisher_name')
+        
+        return res
+
 class MetadataAggregator:
     def __init__(self):
         self.providers = []
@@ -107,6 +182,8 @@ class MetadataAggregator:
             self.providers.append(OpenLibraryProvider())
         if 'googlebooks' in config.METADATA_PROVIDERS:
             self.providers.append(GoogleBooksProvider())
+        if 'audible' in config.METADATA_PROVIDERS:
+            self.providers.append(AudibleProvider())
             
     def enrich(self, initial_result):
         # Use initial result (from filename/tags) to query providers
@@ -158,6 +235,8 @@ class MetadataAggregator:
             base.asin = new.asin
         if hasattr(new, 'cover_url') and new.cover_url: # dynamic attribute
             base.cover_url = new.cover_url
+        if hasattr(new, 'narrator') and new.narrator:
+            base.narrator = new.narrator
             
         # Update title/author to official ones from API if score is high enough?
         # Maybe safer to keep what we found unless it was really bad.

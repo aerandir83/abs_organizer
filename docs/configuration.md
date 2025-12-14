@@ -13,7 +13,7 @@ AutoLibrarian is configured primarily through environment variables. This makes 
 | `STABILITY_CHECK_DURATION` | Time in seconds a file must remain unchanged before processing. | `60` |
 | `PUID` | The User ID to assign to organized files (for permissions). | `1000` |
 | `PGID` | The Group ID to assign to organized files (for permissions). | `1000` |
-| `METADATA_PROVIDERS` | Comma-separated list of metadata providers to use. | `openlibrary,googlebooks` |
+| `METADATA_PROVIDERS` | Comma-separated list of metadata providers to use (options: `openlibrary`, `googlebooks`, `audible`). | `openlibrary,googlebooks,audible` |
 | `MATCH_THRESHOLD_AUTOMATIC` | Confidence score (0-100) required for automatic organization. (Internal config) | `90` |
 | `MATCH_THRESHOLD_PROBABLE` | Confidence score (0-100) required to avoid manual intervention. (Internal config) | `70` |
 
