@@ -230,8 +230,11 @@ class Organizer:
                         try:
                             audio = EasyID3(filepath)
                         except mutagen.id3.ID3NoHeaderError:
+                            # Create a new tag and verify it's saved
                             audio = EasyID3()
-                            audio.save(filepath)
+                            audio.save(filepath, v2_version=3)
+                            # Reload so valid filename is associated
+                            audio = EasyID3(filepath)
                             
                         audio['title'] = metadata.title
                         audio['artist'] = metadata.author
