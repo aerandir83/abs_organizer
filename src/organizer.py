@@ -77,9 +77,7 @@ class Organizer:
             os.makedirs(os.path.dirname(final_dest), exist_ok=True)
             try:
                  if os.path.exists(final_dest):
-                     # If exists, we might overwrite or fail. For now, overwrite/merge strategy:
-                     # Remove existing partial match? Or just merge?
-                     # Safer to remove previous entry if it exists to avoid stale files
+                     # If exists, merge/overwrite
                      shutil.rmtree(final_dest) 
                  
                  os.rename(staging_dir, final_dest)
@@ -91,7 +89,29 @@ class Organizer:
                      
             except Exception as e:
                 logger.error(f"Failed to move to final destination: {e}")
-                raise e # Re-raise to signal failure
+                raise e
+
+    def calculate_destination(self, metadata):
+        # 1. Determine Destination Path
+        # Handle missing fields gracefully for template
+        context = {
+            "author": self._sanitize(metadata.author or "Unknown Author"),
+            "title": self._sanitize(metadata.title or "Unknown Title"),
+            "series": self._sanitize(metadata.series or ""),
+            "year": metadata.year or ""
+        }
+        
+        # Logic to choose template based on available data
+        if metadata.series:
+            rel_path = f"{context['author']}/{context['series']}/{context['title']}"
+        else:
+             rel_path = f"{context['author']}/{context['title']}"
+             
+        # Support user-defined template later?
+        # For now, hardcoded structure: Author/Series/Book or Author/Book
+        
+        dest_base = os.path.join(config.OUTPUT_DIR, rel_path)
+        return dest_base, rel_path
 
     def _cleanup_source(self, dirpath, files):
         logger.info(f"Cleaning up source files in {dirpath}")
