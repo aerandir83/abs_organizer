@@ -71,6 +71,22 @@ class QueueManager:
         with self._lock:
             return self._queue.get(item_id)
 
+    def mark_processed(self, item_id: str):
+        with self._lock:
+            item = self._queue.get(item_id)
+            if item and self.history_manager:
+                item.status = "processed"
+                hash_val = self.history_manager.calculate_hash(item.dirpath, item.files)
+                self.history_manager.update_state(item.dirpath, hash_val, "processed", item.files, item.metadata)
+                
+    def mark_ignored(self, item_id: str):
+        with self._lock:
+            item = self._queue.get(item_id)
+            if item and self.history_manager:
+                item.status = "ignored"
+                hash_val = self.history_manager.calculate_hash(item.dirpath, item.files)
+                self.history_manager.update_state(item.dirpath, hash_val, "ignored", item.files, item.metadata)
+
     def update_item(self, item_id: str, **kwargs):
         with self._lock:
             item = self._queue.get(item_id)

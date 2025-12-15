@@ -133,6 +133,7 @@ def process_item(item_id: str, background_tasks: BackgroundTasks):
 def run_organizer(item_id, dirpath, files, metadata):
     try:
         organizer.organize(dirpath, files, metadata)
+        queue_manager.mark_processed(item_id)
         queue_manager.remove_item(item_id)
     except Exception as e:
         logger.error(f"Failed to organize {item_id}: {e}")
@@ -140,5 +141,6 @@ def run_organizer(item_id, dirpath, files, metadata):
 
 @app.delete("/api/queue/{item_id}")
 def remove_item(item_id: str):
+    queue_manager.mark_ignored(item_id)
     queue_manager.remove_item(item_id)
     return {"status": "removed"}

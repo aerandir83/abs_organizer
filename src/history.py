@@ -108,6 +108,7 @@ class HistoryManager:
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (path, content_hash, status, time.time(), files_json, meta_json))
                 conn.commit()
+                logger.info(f"Updated history for {path} | Status: {status}")
         except Exception as e:
             logger.error(f"Error updating history for {path}: {e}")
 
