@@ -51,12 +51,16 @@ export default function QueueItem({ item, onUpdate }) {
         let folderName = pathParts.pop()
         if (!folderName && pathParts.length > 0) folderName = pathParts.pop() // Handle trailing slash
 
-        const q = formData.title || folderName
+        const q = formData.title || folderName || ""
         try {
             const res = await fetch(`${API_BASE}/queue/${item.id}/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: q, author: formData.author })
+                body: JSON.stringify({
+                    query: q,
+                    author: formData.author,
+                    audible_id: formData.asin
+                })
             })
             const data = await res.json()
             setSearchResults(data)
@@ -206,6 +210,14 @@ export default function QueueItem({ item, onUpdate }) {
                             <div>
                                 <label className="text-xs text-muted">Series</label>
                                 <input className="input" value={formData.series || ''} onChange={e => setFormData({ ...formData, series: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted">ISBN</label>
+                                <input className="input" value={formData.isbn || ''} onChange={e => setFormData({ ...formData, isbn: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted">Audible ID (ASIN)</label>
+                                <input className="input" value={formData.asin || ''} onChange={e => setFormData({ ...formData, asin: e.target.value })} placeholder="B0..." />
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <label className="text-xs text-muted">Description</label>

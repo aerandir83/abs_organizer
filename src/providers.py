@@ -175,6 +175,30 @@ class AudibleProvider(MetadataProvider):
         
         return res
 
+    def get_by_id(self, asin):
+        logger.info(f"Looking up Audible ASIN: {asin}")
+        base_url = f"https://api.audible.com/1.0/catalog/products/{asin}"
+        
+        params = {
+            "response_groups": "media,product_attrs,product_desc,product_extended_attrs,series,contributors"
+        }
+            
+        try:
+            response = requests.get(base_url, params=params, timeout=10)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            
+            if 'product' in data:
+                res = self._parse_product(data['product'])
+                res.confidence = 100 # Exact match
+                return res
+            return None
+        except Exception as e:
+            logger.error(f"Audible ID lookup failed: {e}")
+            return None
+
 class MetadataAggregator:
     def __init__(self):
         self.providers = []
@@ -246,3 +270,9 @@ class MetadataAggregator:
             base.author = new.author
             
         return base
+
+    def get_by_id(self, provider_name, identifier):
+        for provider in self.providers:
+            if provider.__class__.__name__ == provider_name and hasattr(provider, 'get_by_id'):
+                return provider.get_by_id(identifier)
+        return None

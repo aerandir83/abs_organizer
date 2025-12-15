@@ -34,6 +34,7 @@ class MetadataUpdate(BaseModel):
 class SearchQuery(BaseModel):
     query: str
     author: Optional[str] = None
+    audible_id: Optional[str] = None
 
 # Services
 aggregator = MetadataAggregator()
@@ -65,22 +66,28 @@ def search_metadata(item_id: str, query: SearchQuery):
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     
-    # Create a temporary identification result for searching
-    temp_res = IdentificationResult()
-    temp_res.title = query.query
-    temp_res.author = query.author
-    
-    # We cheat a bit and use enrich logic or just access providers directly?
-    # Aggregator.enrich expects an initial result and returns a best match.
-    # But here we want a list of candidates.
-    # MetadataAggregator helpers are private but providers are in self.providers
-    
     results = []
+
+    # Priority 1: Audible ID Search
+    if query.audible_id:
+        res = aggregator.get_by_id("AudibleProvider", query.audible_id)
+        if res:
+            results.append(res.__dict__)
+
+    # Priority 2: Standard Search
+    # Only search if we don't have a perfect ID match or if we want more options
+    # Let's search anyway to provide alternatives
+    
     for provider in aggregator.providers:
         try:
+            # Skip if we already used this provider for ID lookup? 
+            # Well, audible provider search() uses query text, get_by_id uses ASIN.
+            # It might return the same book, but that's fine.
             res = provider.search(query.query, query.author)
             # Convert to dict
             for r in res:
+                # Avoid duplicates based on title/author/source if possible?
+                # or just append
                 results.append(r.__dict__)
         except Exception as e:
             logger.error(f"Provider error: {e}")
