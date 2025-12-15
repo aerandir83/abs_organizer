@@ -89,6 +89,11 @@ class StabilityChecker:
             except Exception as e:
                 logger.error(f"Error processing file {filepath}: {e}")
 
+    def get_stats(self):
+        return {
+            "tracked_files_count": len(self.tracked_files)
+        }
+
 class Monitor:
     def __init__(self, path, callback):
         self.path = path
@@ -125,3 +130,6 @@ class Monitor:
 
     def tick(self):
         self.stability_checker.check()
+
+    def get_stats(self):
+        return self.stability_checker.get_stats()

@@ -6,7 +6,9 @@ const API_BASE = "/api"
 
 export default function App() {
     const [items, setItems] = useState([])
+    const [stats, setStats] = useState({})
     const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState(null)
 
     const fetchQueue = async () => {
@@ -30,11 +32,41 @@ export default function App() {
         }
     }
 
+    const fetchStatus = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/status`)
+            if (res.ok) {
+                setStats(await res.json())
+            }
+        } catch (e) { }
+    }
+
+    const handleRefresh = async () => {
+        setRefreshing(true)
+        try {
+            await fetch(`${API_BASE}/refresh`, { method: 'POST' })
+            // Give it a moment to trigger scan
+            setTimeout(() => {
+                fetchStatus()
+                setRefreshing(false)
+            }, 1000)
+        } catch (e) {
+            console.error(e)
+            setRefreshing(false)
+        }
+    }
+
     useEffect(() => {
         fetchQueue()
-        const interval = setInterval(fetchQueue, 5000)
+        fetchStatus()
+        const interval = setInterval(() => {
+            fetchQueue()
+            fetchStatus()
+        }, 5000)
         return () => clearInterval(interval)
     }, [])
+
+    const pendingCount = (stats.tracked_files_count || 0) + (stats.grouping_files_count || 0)
 
     return (
         <div className="container">
@@ -48,14 +80,27 @@ export default function App() {
                         <span className="text-sm text-muted">Auto-Organizer Dashboard</span>
                     </div>
                 </div>
-                <button className="btn btn-ghost" onClick={fetchQueue}>
-                    <RefreshCw size={18} /> Refresh
-                </button>
+                <div className="flex items-center gap-4">
+                    {pendingCount > 0 && (
+                        <div className="text-sm text-muted flex items-center gap-2 animate-pulse">
+                            <RefreshCw size={14} className="spin" />
+                            <span>Processing {pendingCount} new files...</span>
+                        </div>
+                    )}
+                    <button className="btn btn-ghost" onClick={handleRefresh} disabled={refreshing}>
+                        <RefreshCw size={18} className={refreshing ? "spin" : ""} />
+                        {refreshing ? "Scanning..." : "Rescan Folder"}
+                    </button>
+                </div>
             </header>
 
             <main>
                 <div className="flex justify-between items-end" style={{ marginBottom: '1rem' }}>
                     <h2 className="text-lg">Processing Queue ({items.length})</h2>
+                    <div className="text-sm text-muted">
+                        {stats.tracked_files_count > 0 && <span className="mr-4">Stabilizing: {stats.tracked_files_count}</span>}
+                        {stats.groups_count > 0 && <span>Grouping: {stats.groups_count}</span>}
+                    </div>
                 </div>
 
                 {error && (

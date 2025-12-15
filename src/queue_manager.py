@@ -22,7 +22,28 @@ class QueueManager:
     def __init__(self):
         self._queue: Dict[str, QueueItem] = {}
         self._lock = threading.Lock()
+        self.monitor = None
+        self.status_callbacks = {}
 
+    def set_monitor(self, monitor):
+        self.monitor = monitor
+
+    def refresh_monitor(self):
+        if self.monitor:
+            self.monitor.scan_existing_files()
+
+    def register_status_callback(self, name, callback):
+        self.status_callbacks[name] = callback
+
+    def get_system_status(self):
+        status = {}
+        for name, cb in self.status_callbacks.items():
+            try:
+                status.update(cb())
+            except Exception:
+                pass
+        return status
+    
     def add_item(self, dirpath: str, files: List[str], metadata=None) -> str:
         with self._lock:
             item = QueueItem(dirpath, files, metadata)

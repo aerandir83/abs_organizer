@@ -43,6 +43,13 @@ class FileGrouper:
                 self.callback(dirpath, valid_files)
             del self.groups[dirpath]
 
+    def get_stats(self):
+        count = sum(len(data['files']) for data in self.groups.values())
+        return {
+            "grouping_files_count": count,
+            "groups_count": len(self.groups)
+        }
+
 class IngestionManager:
     def __init__(self, processing_callback):
         self.processing_callback = processing_callback # Callback to Identification Engine
@@ -109,3 +116,6 @@ class IngestionManager:
         
     def tick(self):
         self.grouper.check_groups()
+
+    def get_stats(self):
+        return self.grouper.get_stats()

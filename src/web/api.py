@@ -43,6 +43,15 @@ organizer = Organizer()
 def get_queue():
     return queue_manager.get_items()
 
+@app.post("/api/refresh")
+def refresh_monitor():
+    queue_manager.refresh_monitor()
+    return {"status": "refreshing"}
+
+@app.get("/api/status")
+def get_status():
+    return queue_manager.get_system_status()
+
 @app.get("/api/queue/{item_id}")
 def get_item(item_id: str):
     item = queue_manager.get_item(item_id)

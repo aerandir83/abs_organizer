@@ -40,6 +40,9 @@ class AutoLibrarian:
         
         # Monitor callback -> Ingestion Manager
         self.monitor = Monitor(config.INPUT_DIR, self.ingestion.process_file)
+        queue_manager.set_monitor(self.monitor)
+        queue_manager.register_status_callback("monitor", self.monitor.get_stats)
+        queue_manager.register_status_callback("ingestion", self.ingestion.get_stats)
         
         self.frontend_process = None
 
