@@ -14,10 +14,12 @@ if project_root not in sys.path:
 from src.config import config
 from src.monitor import Monitor
 from src.ingest import IngestionManager
-from src.identifier import Identifier
+from src.identifier import Identifier, IdentificationResult
 from src.providers import MetadataAggregator
 from src.organizer import Organizer
 from src.queue_manager import queue_manager
+from src.history import HistoryManager
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -34,14 +36,41 @@ class AutoLibrarian:
         self.identifier = Identifier()
         self.aggregator = MetadataAggregator()
         self.organizer = Organizer()
+        self.history = HistoryManager(os.path.join(project_root, "history.db"))
         
         # Ingestion Manager callback -> Processing Pipeline
         self.ingestion = IngestionManager(self.process_book)
         
         # Monitor callback -> Ingestion Manager
         self.monitor = Monitor(config.INPUT_DIR, self.ingestion.process_file)
+        queue_manager.set_monitor(self.monitor)
+        queue_manager.set_history_manager(self.history)
+        queue_manager.register_status_callback("monitor", self.monitor.get_stats)
+        queue_manager.register_status_callback("ingestion", self.ingestion.get_stats)
         
         self.frontend_process = None
+
+    def restore_queue(self):
+        logger.info("Restoring pending items from history...")
+        pending_items = self.history.get_all_pending()
+        for item in pending_items:
+            try:
+                # Reconstruct keys
+                dirpath = item['path']
+                files = json.loads(item['file_list'])
+                meta_json = json.loads(item['metadata']) if item['metadata'] else {}
+                
+                # Reconstruct Metadata Object
+                metadata = IdentificationResult()
+                # Safely update attributes
+                for k, v in meta_json.items():
+                    setattr(metadata, k, v)
+                
+                # Add to queue without re-triggering history update
+                queue_manager.add_item(dirpath, files, metadata, from_history=True)
+                logger.info(f"Restored {dirpath} to queue.")
+            except Exception as e:
+                logger.error(f"Failed to restore item {item.get('path')}: {e}")
 
     def start_api(self):
         uvicorn.run("src.web.api:app", host="0.0.0.0", port=config.API_PORT, log_level="info", reload=False)
@@ -97,6 +126,8 @@ class AutoLibrarian:
         logger.info(f"Input Directory: {config.INPUT_DIR}")
         logger.info(f"Output Directory: {config.OUTPUT_DIR}")
         
+        self.restore_queue()
+        
         if config.WEB_UI_ENABLED:
             logger.info(f"Starting Web API on port {config.API_PORT}")
             api_thread = threading.Thread(target=self.start_api, daemon=True)
@@ -116,6 +147,19 @@ class AutoLibrarian:
             self.stop_frontend()
 
     def process_book(self, dirpath, files):
+        # History Check
+        # If item is pending or processed and hash matches, skip.
+        # Check against History Manager
+        state = self.history.get_state(dirpath)
+        current_hash = self.history.calculate_hash(dirpath, files)
+        
+        if state:
+            if state['content_hash'] == current_hash and state['status'] in ['pending', 'processed']:
+                logger.info(f"Skipping {dirpath} - already {state['status']} and unchanged.")
+                return
+            elif state['content_hash'] != current_hash:
+                 logger.info(f"File content changed for {dirpath}. Re-processing.")
+        
         logger.info(f"Processing book group from {dirpath}")
         
         try:
@@ -130,6 +174,7 @@ class AutoLibrarian:
             # Web UI Interception
             if config.WEB_UI_ENABLED:
                 logger.info("Adding to processing queue for Web UI review")
+                # Add to queue manager (which syncs to history as 'pending')
                 queue_manager.add_item(dirpath, files, final_metadata)
                 return
 
@@ -137,11 +182,16 @@ class AutoLibrarian:
             if final_metadata.confidence < config.MATCH_THRESHOLD_PROBABLE:
                 logger.warning(f"Confidence score {final_metadata.confidence} below threshold. Moving to Manual Intervention.")
                 self.organizer.move_to_manual(dirpath, files, final_metadata)
+                # Mark as processed? Yes, managed manually now.
+                self.history.update_state(dirpath, current_hash, 'processed', files, final_metadata)
                 return
 
             # 3. Organization & Move
             self.organizer.organize(dirpath, files, final_metadata)
+            # Mark as processed
+            self.history.update_state(dirpath, current_hash, 'processed', files, final_metadata)
             
+            # 4. Notify ABS            
             # 4. Notify ABS
             self.notify_abs()
             
