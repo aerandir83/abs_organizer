@@ -31,12 +31,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("AutoLibrarian")
 
+from concurrent.futures import ThreadPoolExecutor
+
 class AutoLibrarian:
     def __init__(self):
         self.identifier = Identifier()
         self.aggregator = MetadataAggregator()
         self.organizer = Organizer()
         self.history = HistoryManager(os.path.join(project_root, "history.db"))
+        self.executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS if hasattr(config, 'MAX_WORKERS') else 4)
         
         # Ingestion Manager callback -> Processing Pipeline
         self.ingestion = IngestionManager(self.process_book)
@@ -145,6 +148,7 @@ class AutoLibrarian:
             logger.info("Stopping...")
             self.monitor.stop()
             self.stop_frontend()
+            self.executor.shutdown(wait=False)
 
     def process_book(self, dirpath, files):
         # History Check
@@ -186,18 +190,24 @@ class AutoLibrarian:
                 self.history.update_state(dirpath, current_hash, 'processed', files, final_metadata)
                 return
 
-            # 3. Organization & Move
-            self.organizer.organize(dirpath, files, final_metadata)
-            # Mark as processed
-            self.history.update_state(dirpath, current_hash, 'processed', files, final_metadata)
-            
-            # 4. Notify ABS            
-            # 4. Notify ABS
-            self.notify_abs()
+            # 3. Organization & Move (Async)
+            # Submit to ThreadPool
+            self.executor.submit(self._run_organize, dirpath, files, final_metadata, current_hash)
             
         except Exception as e:
             logger.error(f"Error processing book: {e}", exc_info=True)
             # Move to manual intervention folder?
+
+    def _run_organize(self, dirpath, files, metadata, current_hash):
+        try:
+             self.organizer.organize(dirpath, files, metadata)
+             # Mark as processed
+             self.history.update_state(dirpath, current_hash, 'processed', files, metadata)
+             
+             # 4. Notify ABS
+             self.notify_abs()
+        except Exception as e:
+             logger.error(f"Async organization failed for {dirpath}: {e}")
 
     def notify_abs(self):
         url = f"{config.ABS_URL}/api/libraries/scan" 

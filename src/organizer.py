@@ -11,9 +11,12 @@ from src.metadata import MetadataGenerator
 
 logger = logging.getLogger(__name__)
 
+from src.converter import AudioConverter
+
 class Organizer:
     def __init__(self):
         self.metadata_generator = MetadataGenerator()
+        self.converter = AudioConverter()
         # Template for directory structure
         self.dir_template = Template("{{ author }}/{{ series }}/{{ title }}") 
         # Default simple template if series missing: {{ author }}/{{ title }}
@@ -37,18 +40,33 @@ class Organizer:
             "title": self._sanitize(metadata.title or "Unknown Title"),
         }
         
-        for i, filepath in enumerate(sorted(files)):
-            filename = os.path.basename(filepath)
-            ext = os.path.splitext(filename)[1]
-            
-            # Simple rename: Title - 01.mp3 if multi-file, else Title.mp3
-            new_filename = f"{context['title']} - {i+1:02d}{ext}" if len(files) > 1 else f"{context['title']}{ext}"
-            
-            dest_file = os.path.join(staging_dir, new_filename)
-            if config.DRY_RUN:
-                logger.info(f"[DRY RUN] Would copy {filepath} to {dest_file}")
-            else:
-                shutil.copy2(filepath, dest_file)
+        processed_files = []
+        conversion_success = False
+
+        if config.CONVERT_TO_M4B and not config.DRY_RUN:
+            try:
+                # Merge files into one M4B in the staging directory
+                m4b_path = self.converter.merge_files(files, metadata, staging_dir)
+                if m4b_path:
+                    logger.info(f"Converted/Merged to {m4b_path}")
+                    conversion_success = True
+            except Exception as e:
+                logger.error(f"Conversion failed, falling back to copy: {e}")
+        
+        if not conversion_success:
+            # Fallback or standard copy
+            for i, filepath in enumerate(sorted(files)):
+                filename = os.path.basename(filepath)
+                ext = os.path.splitext(filename)[1]
+                
+                # Simple rename: Title - 01.mp3 if multi-file, else Title.mp3
+                new_filename = f"{context['title']} - {i+1:02d}{ext}" if len(files) > 1 else f"{context['title']}{ext}"
+                
+                dest_file = os.path.join(staging_dir, new_filename)
+                if config.DRY_RUN:
+                    logger.info(f"[DRY RUN] Would copy {filepath} to {dest_file}")
+                else:
+                    shutil.copy2(filepath, dest_file)
             
         # 3. Generate metadata.json
         if config.DRY_RUN:

@@ -29,4 +29,10 @@ class Config:
     WEB_PORT = int(os.getenv("WEB_PORT", "3000"))
     API_PORT = int(os.getenv("API_PORT", "8000"))
 
+    # Conversion
+    CONVERT_TO_M4B = os.getenv("CONVERT_TO_M4B", "true").lower() == "true"
+    FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg") 
+    FFMPEG_HW_ACCEL = os.getenv("FFMPEG_HW_ACCEL", "auto") # auto, aac_at, cuda, none
+    AUDNEXUS_URL = os.getenv("AUDNEXUS_URL", "https://api.audnexus.com")
+
 config = Config()

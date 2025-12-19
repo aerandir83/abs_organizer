@@ -199,6 +199,59 @@ class AudibleProvider(MetadataProvider):
             logger.error(f"Audible ID lookup failed: {e}")
             return None
 
+class AudnexusProvider(MetadataProvider):
+    def search(self, query, author=None):
+        # Audnexus is primarily for lookup by ASIN, but we can try to search if needed
+        # For now, we'll rely on AudibleProvider for search and use this for enrichment if ASIN is found
+        return []
+
+    def get_by_id(self, asin):
+        logger.info(f"Looking up Audnexus ASIN: {asin}")
+        base_url = f"{config.AUDNEXUS_URL}/books/{asin}"
+        
+        try:
+            response = requests.get(base_url, timeout=10)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            
+            return self._parse_book(data)
+        except Exception as e:
+            logger.error(f"Audnexus ID lookup failed: {e}")
+            return None
+
+    def _parse_book(self, data):
+        res = IdentificationResult()
+        res.source = "audnexus"
+        res.title = data.get('title')
+        res.asin = data.get('asin')
+        
+        # Authors
+        authors = data.get('authors', [])
+        if authors:
+            res.author = authors[0].get('name')
+            
+        # Narrators
+        narrators = data.get('narrators', [])
+        if narrators:
+            res.narrator = narrators[0].get('name')
+            
+        # Year
+        date_str = data.get('releaseDate')
+        if date_str:
+            res.year = date_str[:4]
+            
+        # Description
+        res.description = data.get('summary')
+        
+        # Cover
+        res.cover_url = data.get('image')
+        res.publisher = data.get('publisher')
+        
+        res.confidence = 100
+        return res
+
 class MetadataAggregator:
     def __init__(self):
         self.providers = []
@@ -208,6 +261,9 @@ class MetadataAggregator:
             self.providers.append(GoogleBooksProvider())
         if 'audible' in config.METADATA_PROVIDERS:
             self.providers.append(AudibleProvider())
+        if 'audnexus' in config.METADATA_PROVIDERS or 'audible' in config.METADATA_PROVIDERS:
+            # Add Audnexus if audible is enabled, as it enhances it
+            self.providers.append(AudnexusProvider())
             
     def enrich(self, initial_result):
         # Use initial result (from filename/tags) to query providers
